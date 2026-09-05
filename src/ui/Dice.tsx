@@ -50,8 +50,8 @@ export function Dice({ state, die, tumbling, onRoll }: {
           <span key={i} className={`pip${PIPS[shown].includes(i) ? ' on' : ''}`} />
         ))}
       </div>
-      <div style={{ display: 'grid', gap: 6 }}>
-        <button onClick={onRoll} disabled={disabled}>🎲 Roll Dice</button>
+      <div className="dice-controls">
+        <button className="roll-btn" onClick={onRoll} disabled={disabled}>🎲 Roll Dice</button>
         <span style={{ color: 'var(--muted)', fontSize: 12 }}>
           {disabled
             ? (current.kind !== 'human' ? `${current.name} is rolling…` : 'Wait for animation…')

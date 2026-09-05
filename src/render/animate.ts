@@ -1,5 +1,5 @@
 import type { GameState, Plan, Step } from '../types';
-import { boardMetrics, cellCenterPx, drawScene, snakeControlPoint } from './canvas';
+import { boardMetrics, cellCenterPx, drawScene, snakePath } from './canvas';
 
 const STEP_MS = 120;
 const JUMP_MS = 600;
@@ -59,14 +59,11 @@ export async function playPlan(
       await tween(ms, (t) => show(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t));
       interim.positions[opts.highlight] = step.to;
     } else if (step.type === 'snake') {
-      // Snakes slide along the drawn curve (quadratic bézier, same control point).
+      // Snakes slide along the same S-curve the body is drawn on.
       const m = boardMetrics(canvas);
-      const a = cellCenterPx(m, step.from);
-      const b = cellCenterPx(m, step.to);
-      const c = snakeControlPoint(m, step.from, step.to);
       await tween(ms, (t) => {
-        const u = 1 - t;
-        show(u * u * a.x + 2 * u * t * c.x + t * t * b.x, u * u * a.y + 2 * u * t * c.y + t * t * b.y);
+        const p = snakePath(m, step.from, step.to, t);
+        show(p.x, p.y);
       });
       interim.positions[opts.highlight] = step.to;
     } else if (step.type === 'win') {

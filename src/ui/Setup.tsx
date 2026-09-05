@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { Player } from '../types';
+import { ThemeToggle } from './ThemeToggle';
 
 const PALETTE = ['#ff7043', '#42a5f5', '#66bb6a', '#ab47bc'];
 const DEFAULT_NAMES = ['Red', 'Blue', 'Green', 'Purple'];
@@ -17,6 +18,7 @@ export function Setup({ onStart }: { onStart: (opts: { seed: number; variant: 'c
   return (
     <div className="setup">
       <header className="setup__header">
+        <div className="setup__theme"><ThemeToggle /></div>
         <div className="setup__logo">🐍🪜</div>
         <h1 className="setup__title">Snakes &amp; Ladders</h1>
         <p className="setup__sub">

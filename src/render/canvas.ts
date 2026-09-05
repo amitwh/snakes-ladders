@@ -41,15 +41,25 @@ export function cellCenterPx(m: BoardMetrics, n: number): { x: number; y: number
   return { x: m.ox + (col + 0.5) * m.cell, y: m.oy + (9 - row + 0.5) * m.cell };
 }
 
-// Same control point as drawSnake, so the token rides the visible curve.
-export function snakeControlPoint(m: BoardMetrics, from: number, to: number): { x: number; y: number } {
+// A snake's centreline is a gentle S-curve, not a plain arc. Both drawSnake and
+// the token animation sample this same path so the artwork and motion stay in
+// sync. Returns the point plus its unit tangent (pointing head → tail).
+export function snakePath(m: BoardMetrics, from: number, to: number, t: number): { x: number; y: number; tx: number; ty: number } {
   const a = cellCenterPx(m, from);
   const b = cellCenterPx(m, to);
   const dx = b.x - a.x, dy = b.y - a.y;
-  const len = Math.hypot(dx, dy);
-  const nx = -dy / len, ny = dx / len;
-  const off = m.cell * 0.6;
-  return { x: (a.x + b.x) / 2 + nx * off, y: (a.y + b.y) / 2 + ny * off };
+  const len = Math.hypot(dx, dy) || 1;
+  const nx = -dy / len, ny = dx / len;   // perpendicular to the straight head→tail line
+  const amp = m.cell * 0.5;              // sideways undulation
+  const w = Math.sin(t * Math.PI * 2);   // +hump then −hump → S shape
+  const dw = Math.cos(t * Math.PI * 2) * Math.PI * 2;
+  const x = a.x + dx * t + nx * amp * w;
+  const y = a.y + dy * t + ny * amp * w;
+  // Tangent = derivative of the path, normalised.
+  const dtx = dx + nx * amp * dw;
+  const dty = dy + ny * amp * dw;
+  const tl = Math.hypot(dtx, dty) || 1;
+  return { x, y, tx: dtx / tl, ty: dty / tl };
 }
 
 const DEFAULT_FACE = '😊';
@@ -224,47 +234,34 @@ function drawLadder(ctx: CanvasRenderingContext2D, m: BoardMetrics, from: number
   }
 }
 
-// Quadratic bézier helpers for building the tapered snake body.
-function quadPoint(a: { x: number; y: number }, c: { x: number; y: number }, b: { x: number; y: number }, t: number) {
-  const u = 1 - t;
-  return { x: u * u * a.x + 2 * u * t * c.x + t * t * b.x, y: u * u * a.y + 2 * u * t * c.y + t * t * b.y };
-}
-function quadTangent(a: { x: number; y: number }, c: { x: number; y: number }, b: { x: number; y: number }, t: number) {
-  const u = 1 - t;
-  return { x: 2 * u * (c.x - a.x) + 2 * t * (b.x - c.x), y: 2 * u * (c.y - a.y) + 2 * t * (b.y - c.y) };
-}
-
 function drawSnake(ctx: CanvasRenderingContext2D, m: BoardMetrics, from: number, to: number) {
   const { cell } = m;
-  const a = cellCenterPx(m, from);   // head (higher square)
-  const b = cellCenterPx(m, to);     // tail (lower square)
-  const c = snakeControlPoint(m, from, to);
 
   // A real snake is mostly uniform, narrowing only near the tail — not a cone.
   const headHalf = cell * 0.16;
-  const bodyHalf = cell * 0.105;
-  const tailHalf = cell * 0.03;
+  const bodyHalf = cell * 0.10;
+  const tailHalf = cell * 0.025;
   const halfAt = (t: number) => {
     if (t < 0.22) return headHalf + (bodyHalf - headHalf) * (t / 0.22); // head → neck
-    if (t < 0.72) return bodyHalf;                                       // body
-    return bodyHalf + (tailHalf - bodyHalf) * ((t - 0.72) / 0.28);       // → tail point
+    if (t < 0.74) return bodyHalf;                                       // body
+    return bodyHalf + (tailHalf - bodyHalf) * ((t - 0.74) / 0.26);       // → tail point
   };
 
-  const N = 34;
+  const N = 48;
   const left: number[] = [];
   const right: number[] = [];
-  const spine: { x: number; y: number; nx: number; ny: number; hw: number }[] = [];
+  const spine: { x: number; y: number; tx: number; ty: number; nx: number; ny: number; hw: number }[] = [];
   for (let i = 0; i <= N; i++) {
     const t = i / N;
-    const p = quadPoint(a, c, b, t);
-    const tan = quadTangent(a, c, b, t);
-    const tl = Math.hypot(tan.x, tan.y) || 1;
-    const nx = -tan.y / tl, ny = tan.x / tl;   // unit perpendicular
+    const p = snakePath(m, from, to, t);
+    const nx = -p.ty, ny = p.tx;   // perpendicular to the tangent
     const hw = halfAt(t);
     left.push(p.x + nx * hw, p.y + ny * hw);
     right.push(p.x - nx * hw, p.y - ny * hw);
-    spine.push({ x: p.x, y: p.y, nx, ny, hw });
+    spine.push({ x: p.x, y: p.y, tx: p.tx, ty: p.ty, nx, ny, hw });
   }
+
+  // Body silhouette along the S-curve.
   ctx.beginPath();
   ctx.moveTo(left[0], left[1]);
   for (let i = 1; i <= N; i++) ctx.lineTo(left[i * 2], left[i * 2 + 1]);
@@ -273,36 +270,35 @@ function drawSnake(ctx: CanvasRenderingContext2D, m: BoardMetrics, from: number,
   ctx.fillStyle = COLORS.snake;
   ctx.fill();
   ctx.strokeStyle = COLORS.snakeDark;
-  ctx.lineWidth = Math.max(1.25, cell * 0.02);
+  ctx.lineWidth = Math.max(1.25, cell * 0.018);
   ctx.lineJoin = 'round';
   ctx.stroke();
 
-  // Dorsal bands: short darker marks down the back.
-  ctx.strokeStyle = COLORS.snakeDark;
-  ctx.lineWidth = Math.max(1, cell * 0.022);
-  ctx.lineCap = 'round';
-  for (const t of [0.34, 0.46, 0.58, 0.7]) {
-    const s = spine[Math.round(t * N)];
-    const w = s.hw * 0.72;
+  // Dorsal diamond scales down the back.
+  ctx.fillStyle = COLORS.snakeDark;
+  for (let k = 0; k < 6; k++) {
+    const s = spine[Math.round((0.24 + k * 0.1) * N)];
+    const l = s.hw * 0.85;
+    const w = s.hw * 0.45;
     ctx.beginPath();
-    ctx.moveTo(s.x + s.nx * w, s.y + s.ny * w);
+    ctx.moveTo(s.x + s.tx * l, s.y + s.ty * l);
+    ctx.lineTo(s.x + s.nx * w, s.y + s.ny * w);
+    ctx.lineTo(s.x - s.tx * l, s.y - s.ty * l);
     ctx.lineTo(s.x - s.nx * w, s.y - s.ny * w);
-    ctx.stroke();
+    ctx.closePath();
+    ctx.fill();
   }
 
-  // Head: wider than the neck, oriented along the body direction.
-  const tan0 = quadTangent(a, c, b, 0);
-  const tl0 = Math.hypot(tan0.x, tan0.y) || 1;
-  const hdx = tan0.x / tl0, hdy = tan0.y / tl0;   // toward the tail/body
-  const fwd = { x: -hdx, y: -hdy };               // snout direction
-  const perp = { x: -hdy, y: hdx };               // lateral
+  // Head: wider than the neck, oriented along the body.
+  const hp = spine[0];
   const hr = headHalf * 1.2;
-
+  const fwd = { x: -hp.tx, y: -hp.ty };   // snout direction
+  const perp = { x: -hp.ty, y: hp.tx };   // lateral
   ctx.save();
-  ctx.translate(a.x, a.y);
-  ctx.rotate(Math.atan2(hdy, hdx));
+  ctx.translate(hp.x, hp.y);
+  ctx.rotate(Math.atan2(hp.ty, hp.tx));
   ctx.beginPath();
-  ctx.ellipse(0, 0, hr * 1.4, hr * 0.95, 0, 0, Math.PI * 2);
+  ctx.ellipse(0, 0, hr * 1.35, hr * 0.95, 0, 0, Math.PI * 2);
   ctx.fillStyle = COLORS.snakeHead;
   ctx.fill();
   ctx.strokeStyle = COLORS.snake;
@@ -310,10 +306,22 @@ function drawSnake(ctx: CanvasRenderingContext2D, m: BoardMetrics, from: number,
   ctx.stroke();
   ctx.restore();
 
+  // Short forked tongue flicking just past the snout.
+  ctx.strokeStyle = '#ef5350';
+  ctx.lineWidth = Math.max(1.25, cell * 0.02);
+  ctx.lineCap = 'round';
+  const tb = { x: hp.x + fwd.x * hr * 0.85, y: hp.y + fwd.y * hr * 0.85 };
+  for (const side of [-1, 1]) {
+    ctx.beginPath();
+    ctx.moveTo(tb.x, tb.y);
+    ctx.lineTo(tb.x + fwd.x * hr * 0.5 + perp.x * hr * 0.26 * side, tb.y + fwd.y * hr * 0.5 + perp.y * hr * 0.26 * side);
+    ctx.stroke();
+  }
+
   // Eyes near the snout with vertical slit pupils.
   for (const side of [-1, 1]) {
-    const ex = a.x + fwd.x * hr * 0.45 + perp.x * hr * 0.5 * side;
-    const ey = a.y + fwd.y * hr * 0.45 + perp.y * hr * 0.5 * side;
+    const ex = hp.x + fwd.x * hr * 0.42 + perp.x * hr * 0.5 * side;
+    const ey = hp.y + fwd.y * hr * 0.42 + perp.y * hr * 0.5 * side;
     ctx.beginPath();
     ctx.arc(ex, ey, hr * 0.34, 0, Math.PI * 2);
     ctx.fillStyle = '#fff';

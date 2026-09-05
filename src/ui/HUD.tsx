@@ -1,5 +1,6 @@
 import type { GameState } from '../types';
 import { isMuted, setMuted } from '../audio/sfx';
+import { ThemeToggle } from './ThemeToggle';
 
 export function HUD({ state }: { state: GameState }) {
   const current = state.players[state.turnIndex];
@@ -24,6 +25,7 @@ export function HUD({ state }: { state: GameState }) {
       <button className="btn-secondary" onClick={() => setMuted(!isMuted())}>
         {isMuted() ? 'Unmute' : 'Mute'}
       </button>
+      <ThemeToggle />
     </div>
   );
 }

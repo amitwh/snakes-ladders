@@ -1,0 +1,1 @@
+// No IPC channels needed; the game runs entirely in the renderer.

@@ -1,0 +1,11 @@
+appId: dev.amith.snakesladders
+productName: SnakesLadders
+files:
+  - dist/**/*
+  - electron/**/*
+  - package.json
+linux:
+  target:
+    - AppImage
+  category: Game
+artifactName: SnakesLadders-${version}.${ext}

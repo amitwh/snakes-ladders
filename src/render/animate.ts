@@ -41,14 +41,14 @@ export async function playPlan(
     if (step.type === 'walk') {
       await tween(ms, (t) => {
         // Animate the active player from `from` to `to`.
-        const partial = step.from + (step.to - step.from) * t;
+        const partial = Math.round(step.from + (step.to - step.from) * t);
         interim.positions[baseState.turnIndex] = partial;
         drawScene(canvas, interim, baseState.turnIndex);
       });
       interim.positions[baseState.turnIndex] = step.to;
     } else if (step.type === 'snake' || step.type === 'ladder') {
       await tween(ms, (t) => {
-        const partial = step.from + (step.to - step.from) * t;
+        const partial = Math.round(step.from + (step.to - step.from) * t);
         interim.positions[baseState.turnIndex] = partial;
         drawScene(canvas, interim, baseState.turnIndex);
       });

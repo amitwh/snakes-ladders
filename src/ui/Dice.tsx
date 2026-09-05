@@ -45,7 +45,7 @@ export function Dice({ state, die, tumbling, onRoll }: {
   const shown = tumbling ? face : die ?? 6;
   return (
     <div className="dice-panel">
-      <div className={`die${tumbling ? ' tumbling' : ''}`} aria-label={`die showing ${shown}`}>
+      <div className={`die die-face-${shown}${tumbling ? ' tumbling' : ''}`} aria-label={`die showing ${shown}`}>
         {Array.from({ length: 9 }, (_, i) => (
           <span key={i} className={`pip${PIPS[shown].includes(i) ? ' on' : ''}`} />
         ))}

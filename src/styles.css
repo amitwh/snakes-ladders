@@ -250,6 +250,13 @@ input[type='number'] { -moz-appearance: textfield; }
 }
 .pip { border-radius: 50%; }
 .pip.on { background: #0d0b09; }
+/* Coloured pips per face value */
+.die-face-1 .pip.on { background: #e5461f; }
+.die-face-2 .pip.on { background: #3b82f6; }
+.die-face-3 .pip.on { background: #10b981; }
+.die-face-4 .pip.on { background: #f59e0b; }
+.die-face-5 .pip.on { background: #8b5cf6; }
+.die-face-6 .pip.on { background: #ec4899; }
 .die.tumbling { animation: tumble 0.28s linear infinite; }
 @keyframes tumble {
   0%   { transform: rotate(-14deg) scale(1.05); }

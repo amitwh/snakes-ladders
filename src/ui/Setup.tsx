@@ -62,11 +62,17 @@ export function Setup({ onStart }: { onStart: (opts: { seed: number; variant: 'c
       )}
 
       <section style={{ display: 'grid', gap: 10 }}>
+        <div className="player-head">
+          <span />
+          <span>Name</span>
+          <span>Type</span>
+          <span>Colour</span>
+        </div>
         {players.slice(0, count).map((p, i) => (
           <div key={p.id} className="player-row">
             <span className="player-row__dot" style={{ background: p.color, color: p.color }} />
-            <input value={p.name} onChange={(e) => update(i, { name: e.target.value })} />
-            <select value={p.kind} onChange={(e) => update(i, { kind: e.target.value as 'human' | 'computer' })}>
+            <input value={p.name} aria-label={`Player ${i + 1} name`} title="Player name" onChange={(e) => update(i, { name: e.target.value })} />
+            <select value={p.kind} aria-label={`Player ${i + 1} type`} title="Player type" onChange={(e) => update(i, { kind: e.target.value as 'human' | 'computer' })}>
               <option value="human">🧑 Human</option>
               <option value="computer">🤖 Computer</option>
             </select>
@@ -74,6 +80,7 @@ export function Setup({ onStart }: { onStart: (opts: { seed: number; variant: 'c
               type="color"
               value={p.color}
               onChange={(e) => update(i, { color: e.target.value })}
+              aria-label={`Player ${i + 1} colour`}
               title="Token colour"
             />
           </div>

@@ -2,6 +2,9 @@
   "name": "snakes-ladders",
   "private": true,
   "version": "0.1.0",
+  "description": "A 2D Snakes & Ladders game for 2-4 players",
+  "author": "Amith Haridas",
+  "main": "electron/main.cjs",
   "type": "module",
   "scripts": {
     "dev": "vite",

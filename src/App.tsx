@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { GameState, Player } from './types';
 import { freshGame, rollDice } from './engine/game';
-import { createRng, randomDie } from './engine/rng';
+import { randomDie } from './engine/rng';
 import { chooseDelayMs } from './engine/ai';
 import { drawScene, runConfetti } from './render/canvas';
 import { playPlan } from './render/animate';
@@ -44,8 +44,7 @@ export default function App() {
     if (!state || state.phase !== 'rolling') return;
     const current = state.players[state.turnIndex];
     if (current.kind !== 'computer' || state.winner !== null) return;
-    const rng = createRng(state.seed + state.rollCount);
-    const delay = chooseDelayMs(rng);
+    const delay = chooseDelayMs(Math.random);
     aiTimer.current = window.setTimeout(() => void handleRoll(), delay);
     return () => { if (aiTimer.current) window.clearTimeout(aiTimer.current); };
     // eslint-disable-next-line react-hooks/exhaustive-deps

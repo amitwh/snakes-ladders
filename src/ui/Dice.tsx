@@ -44,7 +44,7 @@ export function Dice({ state, die, tumbling, onRoll }: {
 
   const shown = tumbling ? face : die ?? 6;
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: 10, background: 'var(--panel)', borderRadius: 8 }}>
+    <div className="dice-panel">
       <div className={`die${tumbling ? ' tumbling' : ''}`} aria-label={`die showing ${shown}`}>
         {Array.from({ length: 9 }, (_, i) => (
           <span key={i} className={`pip${PIPS[shown].includes(i) ? ' on' : ''}`} />
@@ -52,7 +52,7 @@ export function Dice({ state, die, tumbling, onRoll }: {
       </div>
       <div style={{ display: 'grid', gap: 6 }}>
         <button onClick={onRoll} disabled={disabled}>🎲 Roll Dice</button>
-        <span style={{ opacity: 0.7, fontSize: 12 }}>
+        <span style={{ color: 'var(--muted)', fontSize: 12 }}>
           {disabled
             ? (current.kind !== 'human' ? `${current.name} is rolling…` : 'Wait for animation…')
             : 'Click or press Space'}

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { createRng } from '../src/engine/rng';
 import { squareToCell, CLASSIC_LAYOUT, generateLayout, validateLayout } from '../src/engine/board';
 import { freshGame, rollDice } from '../src/engine/game';
+import { chooseDelayMs } from '../src/engine/ai';
 
 describe('createRng (mulberry32)', () => {
   it('produces the same sequence from the same seed', () => {
@@ -191,5 +192,22 @@ describe('rollDice', () => {
     const { state } = rollDice(twoPlayers(), 4);
     expect(state.log.length).toBeGreaterThan(0);
     expect(state.log.some((l) => /P1/.test(l))).toBe(true);
+  });
+});
+
+describe('chooseDelayMs', () => {
+  it('returns a number within [400, 900)', () => {
+    const r = createRng(5);
+    for (let i = 0; i < 100; i++) {
+      const d = chooseDelayMs(r);
+      expect(d).toBeGreaterThanOrEqual(400);
+      expect(d).toBeLessThan(900);
+    }
+  });
+
+  it('is deterministic from the same rng stream', () => {
+    const a = chooseDelayMs(createRng(11));
+    const b = chooseDelayMs(createRng(11));
+    expect(a).toBe(b);
   });
 });

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { createRng } from '../src/engine/rng';
 import { squareToCell, CLASSIC_LAYOUT, generateLayout, validateLayout } from '../src/engine/board';
+import { freshGame, rollDice } from '../src/engine/game';
 
 describe('createRng (mulberry32)', () => {
   it('produces the same sequence from the same seed', () => {
@@ -92,5 +93,103 @@ describe('generateLayout', () => {
     for (let s = 0; s < 50; s++) {
       expect(validateLayout(generateLayout(s)).ok).toBe(true);
     }
+  });
+});
+
+function twoPlayers(seed = 1) {
+  return freshGame({
+    seed,
+    variant: 'classic',
+    players: [
+      { id: 'p1', name: 'P1', color: '#ff7043', kind: 'human' },
+      { id: 'p2', name: 'P2', color: '#42a5f5', kind: 'human' },
+    ],
+  });
+}
+
+describe('freshGame', () => {
+  it('starts all players at 0 (off board) with no winner', () => {
+    const s = twoPlayers();
+    expect(s.positions).toEqual([0, 0]);
+    expect(s.winner).toBeNull();
+    expect(s.phase).toBe('rolling');
+    expect(s.turnIndex).toBe(0);
+  });
+});
+
+describe('rollDice', () => {
+  it('places a token on the board on the first roll', () => {
+    const s = twoPlayers();
+    const { state, plan } = rollDice(s, 3);
+    expect(state.positions[0]).toBe(3);
+    expect(plan.steps.length).toBe(3);
+    expect(plan.steps.at(-1)).toEqual({ type: 'walk', from: 2, to: 3 });
+  });
+
+  it('walks step-by-step between squares (not a teleport)', () => {
+    const s = twoPlayers();
+    s.positions = [4, 0]; // skip ahead so the ladder at 6 doesn't interfere
+    const { plan } = rollDice(s, 5); // walk 4→9
+    const last = plan.steps.at(-1);
+    expect(last).toEqual({ type: 'walk', from: 8, to: 9 });
+  });
+
+  it('rolling a 6 grants an extra turn (turnIndex unchanged)', () => {
+    const r = rollDice(twoPlayers(), 6);
+    expect(r.state.turnIndex).toBe(0);
+    expect(r.state.phase).toBe('rolling');
+  });
+
+  it('rolling 1..5 advances to the next player', () => {
+    const r = rollDice(twoPlayers(), 4);
+    expect(r.state.turnIndex).toBe(1);
+    expect(r.state.phase).toBe('rolling');
+  });
+
+  it('chains a 6 then a non-6 correctly', () => {
+    let s = twoPlayers();
+    s = rollDice(s, 6).state;   // P1 rolls, keeps turn
+    expect(s.turnIndex).toBe(0);
+    s = rollDice(s, 3).state;   // P1 rolls 3, advances
+    expect(s.turnIndex).toBe(1);
+  });
+
+  it('appends a snake step when landing on a snake head', () => {
+    // CLASSIC_LAYOUT has snake at 99→54
+    let s = twoPlayers();
+    s.positions = [98, 0]; // skip ahead
+    const { plan } = rollDice(s, 1);
+    expect(plan.steps.at(-1)).toEqual({ type: 'snake', from: 99, to: 54 });
+  });
+
+  it('appends a ladder step when landing on a ladder foot', () => {
+    // CLASSIC_LAYOUT: ladder 6→25
+    let s = twoPlayers();
+    s.positions = [1, 0];
+    const { plan } = rollDice(s, 5);
+    expect(plan.steps.at(-1)).toEqual({ type: 'ladder', from: 6, to: 25 });
+  });
+
+  it('declares a winner on exact landing on 100', () => {
+    let s = twoPlayers();
+    s.positions = [98, 0];
+    const { state } = rollDice(s, 2);
+    expect(state.winner).toBe(0);
+    expect(state.phase).toBe('gameover');
+  });
+
+  it('overshooting 100 also wins (no bounce-back)', () => {
+    let s = twoPlayers();
+    s.positions = [98, 0];
+    const { state, plan } = rollDice(s, 5);
+    expect(state.winner).toBe(0);
+    // No walk step to >100; instead a single win step at 100.
+    expect(plan.steps.at(-1)).toEqual({ type: 'win', at: 100 });
+  });
+
+  it('appends a human-readable log line per transition', () => {
+    const { state } = rollDice(twoPlayers(), 4);
+    expect(state.log.length).toBeGreaterThan(0);
+    expect(state.log.some((l) => /P1/.test(l))).toBe(true);
   });
 });

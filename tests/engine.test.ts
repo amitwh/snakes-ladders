@@ -211,3 +211,51 @@ describe('chooseDelayMs', () => {
     expect(a).toBe(b);
   });
 });
+
+describe('full seeded game', () => {
+  it('terminates with exactly one winner under 500 rolls', () => {
+    let s = freshGame({
+      seed: 2026,
+      variant: 'random',
+      players: [
+        { id: 'p1', name: 'P1', color: '#ff7043', kind: 'computer' },
+        { id: 'p2', name: 'P2', color: '#42a5f5', kind: 'computer' },
+      ],
+    });
+    // Override the engine's internal die source so the test is deterministic.
+    const rng = createRng(2026);
+    let rolls = 0;
+    while (s.phase !== 'gameover' && rolls < 500) {
+      const die = Math.floor(rng() * 6) + 1;
+      s = rollDice(s, die).state;
+      rolls++;
+    }
+    expect(s.winner).not.toBeNull();
+    expect(s.winner).toBeGreaterThanOrEqual(0);
+    expect(s.winner!).toBeLessThan(s.players.length);
+    expect(rolls).toBeLessThan(500);
+  });
+
+  it('two seeds produce identical replays (determinism)', () => {
+    function replay(seed: number) {
+      let s = freshGame({
+        seed,
+        variant: 'random',
+        players: [
+          { id: 'p1', name: 'P1', color: '#ff7043', kind: 'computer' },
+          { id: 'p2', name: 'P2', color: '#42a5f5', kind: 'computer' },
+        ],
+      });
+      const rng = createRng(seed);
+      const positions: number[] = [];
+      let rolls = 0;
+      while (s.phase !== 'gameover' && rolls < 500) {
+        const die = Math.floor(rng() * 6) + 1;
+        s = rollDice(s, die).state;
+        positions.push(...s.positions);
+      }
+      return { winner: s.winner, positions };
+    }
+    expect(replay(7)).toEqual(replay(7));
+  });
+});

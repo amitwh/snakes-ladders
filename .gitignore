@@ -3,6 +3,7 @@ dist
 release
 *.log
 .DS_Store
-.remember/tmp
-.remember/logs
+.remember/
+.superpowers/
+docs/
 .playwright-mcp/

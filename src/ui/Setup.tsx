@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { Player } from '../types';
 import { ThemeToggle } from './ThemeToggle';
+import { Footer } from './Footer';
 
 const PALETTE = ['#ff7043', '#42a5f5', '#66bb6a', '#ab47bc'];
 const DEFAULT_NAMES = ['Red', 'Blue', 'Green', 'Purple'];
@@ -16,6 +17,7 @@ export function Setup({ onStart }: { onStart: (opts: { seed: number; variant: 'c
   const update = (i: number, patch: Partial<Player>) => setPlayers((ps) => ps.map((p, idx) => (idx === i ? { ...p, ...patch } : p)));
 
   return (
+    <>
     <div className="setup">
       <header className="setup__header">
         <div className="setup__theme"><ThemeToggle /></div>
@@ -82,5 +84,7 @@ export function Setup({ onStart }: { onStart: (opts: { seed: number; variant: 'c
         ▶ Start Game
       </button>
     </div>
+    <Footer />
+    </>
   );
 }

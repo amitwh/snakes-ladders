@@ -11,6 +11,7 @@ import { HUD } from './ui/HUD';
 import { Dice } from './ui/Dice';
 import { Log } from './ui/Log';
 import { WinModal } from './ui/WinModal';
+import { Footer } from './ui/Footer';
 
 interface SetupOpts { seed: number; variant: 'classic' | 'random'; players: Player[]; }
 
@@ -99,6 +100,7 @@ export default function App() {
         <Dice state={state} die={die} tumbling={tumbling} onRoll={handleRoll} />
         <Log state={state} />
       </div>
+      <Footer />
     </div>
   );
 }

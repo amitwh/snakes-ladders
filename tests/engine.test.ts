@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createRng } from '../src/engine/rng';
+import { createRng, randomDie } from '../src/engine/rng';
 import { squareToCell, CLASSIC_LAYOUT, generateLayout, validateLayout } from '../src/engine/board';
 import { freshGame, rollDice } from '../src/engine/game';
 import { chooseDelayMs } from '../src/engine/ai';
@@ -36,6 +36,18 @@ describe('createRng (mulberry32)', () => {
       expect(d).toBeGreaterThanOrEqual(1);
       expect(d).toBeLessThanOrEqual(6);
     }
+  });
+
+  it('randomDie stays in 1..6 and produces varied values', () => {
+    const seen = new Set<number>();
+    for (let i = 0; i < 600; i++) {
+      const d = randomDie();
+      expect(d).toBeGreaterThanOrEqual(1);
+      expect(d).toBeLessThanOrEqual(6);
+      expect(Number.isInteger(d)).toBe(true);
+      seen.add(d);
+    }
+    expect(seen.size).toBe(6);
   });
 });
 
@@ -192,6 +204,62 @@ describe('rollDice', () => {
     const { state } = rollDice(twoPlayers(), 4);
     expect(state.log.length).toBeGreaterThan(0);
     expect(state.log.some((l) => /P1/.test(l))).toBe(true);
+  });
+});
+
+describe('flavour & fun', () => {
+  it('starts with sixStreak at 0', () => {
+    expect(twoPlayers().sixStreak).toBe(0);
+  });
+
+  it('increments sixStreak on a 6 and resets on non-6', () => {
+    let s = twoPlayers();
+    s = rollDice(s, 6).state;
+    expect(s.sixStreak).toBe(1);
+    s = rollDice(s, 6).state;
+    expect(s.sixStreak).toBe(2);
+    s = rollDice(s, 3).state;
+    expect(s.sixStreak).toBe(0);
+  });
+
+  it('announces a hot streak from the second consecutive 6', () => {
+    let s = twoPlayers();
+    s = rollDice(s, 6).state;
+    s = rollDice(s, 6).state;
+    expect(s.log.at(-1)).toMatch(/🔥/);
+    expect(s.log.at(-1)).toMatch(/2/);
+  });
+
+  it('resets when the turn passes to the next player', () => {
+    let s = twoPlayers();
+    s = rollDice(s, 6).state; // P1 keeps turn
+    s = rollDice(s, 2).state; // P1 moves on, streak resets, turn passes
+    expect(s.sixStreak).toBe(0);
+    s = rollDice(s, 6).state; // P2 rolls 6
+    expect(s.sixStreak).toBe(1);
+  });
+
+  it('snake landings get a 🐍 log line', () => {
+    let s = twoPlayers();
+    s.positions = [98, 0];
+    const { state } = rollDice(s, 1); // lands on snake 99→54
+    expect(state.log.at(-1)).toMatch(/🐍/);
+    expect(state.log.at(-1)).toMatch(/P1/);
+  });
+
+  it('ladder landings get a 🪜 log line', () => {
+    let s = twoPlayers();
+    s.positions = [1, 0];
+    const { state } = rollDice(s, 5); // lands on ladder 6→25
+    expect(state.log.at(-1)).toMatch(/🪜/);
+  });
+
+  it('winning gets a 🏆 log line', () => {
+    let s = twoPlayers();
+    s.positions = [98, 0];
+    const { state } = rollDice(s, 2);
+    expect(state.log.at(-1)).toMatch(/🏆/);
+    expect(state.log.at(-1)).toMatch(/P1/);
   });
 });
 

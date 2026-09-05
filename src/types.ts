@@ -39,6 +39,7 @@ export interface GameState {
   turnIndex: number;             // index into players
   phase: Phase;
   rollCount: number;
+  sixStreak: number;             // consecutive 6s by the current roller (0 = none)
   winner: number | null;         // index into players
   log: string[];
 }

@@ -10,3 +10,15 @@ export function createRng(seed: number): () => number {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
+
+// Live (non-seeded) die roll for gameplay — crypto-strong where available.
+// The seed governs the board layout; every roll in a real game is fresh.
+export function randomDie(): number {
+  const c = (globalThis as { crypto?: Crypto }).crypto;
+  if (c?.getRandomValues) {
+    const buf = new Uint32Array(1);
+    c.getRandomValues(buf);
+    return (buf[0] % 6) + 1;
+  }
+  return Math.floor(Math.random() * 6) + 1;
+}

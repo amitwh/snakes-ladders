@@ -1,5 +1,5 @@
 import type { GameState, Plan, Step } from '../types';
-import { drawScene } from './canvas';
+import { boardMetrics, cellCenterPx, drawScene, snakeControlPoint } from './canvas';
 
 const STEP_MS = 120;
 const JUMP_MS = 600;
@@ -24,44 +24,60 @@ async function tween(ms: number, draw: (t: number) => void): Promise<void> {
   });
 }
 
+export interface PlayOpts {
+  highlight: number;                          // the moving player
+  moods?: Record<number, string>;             // live face overrides (mutated via onStepStart)
+  onStepStart?: (step: Step) => void;
+  onProgress?: (i: number, total: number) => void;
+}
+
 export async function playPlan(
   canvas: HTMLCanvasElement,
   baseState: GameState,
   plan: Plan,
-  onProgress?: (i: number, total: number) => void,
-  onStepStart?: (step: Step) => void,
+  opts: PlayOpts,
 ): Promise<void> {
   const total = plan.steps.length;
   for (let i = 0; i < total; i++) {
     const step = plan.steps[i];
-    onStepStart?.(step);
+    opts.onStepStart?.(step);
     const ms = step.type === 'walk' ? STEP_MS : step.type === 'win' ? WIN_MS : JUMP_MS;
     const interim: GameState = { ...baseState, positions: [...baseState.positions] };
+    const show = (x: number, y: number) =>
+      drawScene(canvas, interim, {
+        highlight: opts.highlight,
+        moods: opts.moods,
+        override: { player: opts.highlight, x, y },
+      });
 
-    if (step.type === 'walk') {
+    if (step.type === 'walk' || step.type === 'ladder') {
+      // Ladders climb straight up the rails; walks slide centre-to-centre.
+      // from can be 0 (off-board start) — enter via square 1 in that case.
+      const m = boardMetrics(canvas);
+      const a = cellCenterPx(m, Math.max(1, step.from));
+      const b = cellCenterPx(m, step.to);
+      await tween(ms, (t) => show(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t));
+      interim.positions[opts.highlight] = step.to;
+    } else if (step.type === 'snake') {
+      // Snakes slide along the drawn curve (quadratic bézier, same control point).
+      const m = boardMetrics(canvas);
+      const a = cellCenterPx(m, step.from);
+      const b = cellCenterPx(m, step.to);
+      const c = snakeControlPoint(m, step.from, step.to);
       await tween(ms, (t) => {
-        // Animate the active player from `from` to `to`.
-        const partial = Math.round(step.from + (step.to - step.from) * t);
-        interim.positions[baseState.turnIndex] = partial;
-        drawScene(canvas, interim, baseState.turnIndex);
+        const u = 1 - t;
+        show(u * u * a.x + 2 * u * t * c.x + t * t * b.x, u * u * a.y + 2 * u * t * c.y + t * t * b.y);
       });
-      interim.positions[baseState.turnIndex] = step.to;
-    } else if (step.type === 'snake' || step.type === 'ladder') {
-      await tween(ms, (t) => {
-        const partial = Math.round(step.from + (step.to - step.from) * t);
-        interim.positions[baseState.turnIndex] = partial;
-        drawScene(canvas, interim, baseState.turnIndex);
-      });
-      interim.positions[baseState.turnIndex] = step.to;
+      interim.positions[opts.highlight] = step.to;
     } else if (step.type === 'win') {
-      await tween(ms, (_t) => {
-        interim.positions[baseState.turnIndex] = step.at;
-        drawScene(canvas, interim, baseState.turnIndex);
+      interim.positions[opts.highlight] = step.at;
+      await tween(ms, () => {
+        drawScene(canvas, interim, { highlight: opts.highlight, moods: opts.moods });
       });
     }
 
     baseState = interim;
-    onProgress?.(i + 1, total);
+    opts.onProgress?.(i + 1, total);
     await wait(0); // yield
   }
 }

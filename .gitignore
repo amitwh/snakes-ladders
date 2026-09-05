@@ -5,3 +5,4 @@ release
 .DS_Store
 .remember/tmp
 .remember/logs
+.playwright-mcp/

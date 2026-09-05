@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import type { GameState, Player } from './types';
 import { freshGame, rollDice } from './engine/game';
-import { createRng } from './engine/rng';
+import { createRng, randomDie } from './engine/rng';
 import { chooseDelayMs } from './engine/ai';
-import { drawScene } from './render/canvas';
+import { drawScene, runConfetti } from './render/canvas';
 import { playPlan } from './render/animate';
 import { play as playSfx } from './audio/sfx';
 import { Setup } from './ui/Setup';
@@ -14,17 +14,27 @@ import { WinModal } from './ui/WinModal';
 
 interface SetupOpts { seed: number; variant: 'classic' | 'random'; players: Player[]; }
 
+const TUMBLE_MS = 550;
+
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export default function App() {
   const [opts, setOpts] = useState<SetupOpts | null>(null);
   const [state, setState] = useState<GameState | null>(null);
+  const [die, setDie] = useState<number | null>(null);
+  const [tumbling, setTumbling] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const aiTimer = useRef<number | null>(null);
+  // Face overrides per player, mutated during animation (😱 🤩 🥳).
+  const moodsRef = useRef<Record<number, string>>({});
 
   // Redraw whenever state changes (and on resize).
   useEffect(() => {
     if (!state || !canvasRef.current) return;
-    drawScene(canvasRef.current, state, state.turnIndex);
-    const onResize = () => drawScene(canvasRef.current!, state, state.turnIndex);
+    drawScene(canvasRef.current, state, { highlight: state.turnIndex, moods: moodsRef.current });
+    const onResize = () => drawScene(canvasRef.current!, state, { highlight: state.turnIndex, moods: moodsRef.current });
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, [state]);
@@ -44,39 +54,39 @@ export default function App() {
   async function handleRoll() {
     if (!state || !canvasRef.current) return;
     if (state.phase !== 'rolling') return;
-    const current = state.players[state.turnIndex];
-    if (current.kind === 'computer') {
-      // AI: use seeded stream for die.
-      const rng = createRng(state.seed * 31 + state.rollCount * 17 + state.turnIndex);
-      const die = Math.floor(rng() * 6) + 1;
-      const { state: next, plan } = rollDice(state, die);
-      playSfx('roll');
-      setState({ ...next, phase: 'animating' });
-      await playPlan(canvasRef.current, { ...next, phase: 'animating', turnIndex: state.turnIndex }, plan, undefined, (s) => {
+    const playerIdx = state.turnIndex;
+
+    // Live random die for everyone — the seed only governs the board layout.
+    const value = randomDie();
+    setTumbling(true);
+    setDie(null);
+    playSfx('roll');
+    await wait(TUMBLE_MS);
+    setTumbling(false);
+    setDie(value);
+
+    const { state: next, plan } = rollDice(state, value);
+    // Keep the rolling player's turnIndex during the animation so the HUD and
+    // dice show the player who is actually moving (not the next player yet).
+    setState({ ...next, phase: 'animating', turnIndex: playerIdx });
+    await playPlan(canvasRef.current, { ...next, phase: 'animating', turnIndex: playerIdx }, plan, {
+      highlight: playerIdx,
+      moods: moodsRef.current,
+      onStepStart: (s) => {
         if (s.type === 'walk') playSfx('step');
-        else if (s.type === 'snake') playSfx('snake');
-        else if (s.type === 'ladder') playSfx('ladder');
-        else if (s.type === 'win') playSfx('win');
-      });
-      setState(next);
-    } else {
-      // Ruling B: human rolls are also deterministic from the seed.
-      const rng = createRng(state.seed + state.rollCount * 7 + state.turnIndex * 13);
-      const die = Math.floor(rng() * 6) + 1;
-      const { state: next, plan } = rollDice(state, die);
-      playSfx('roll');
-      setState({ ...next, phase: 'animating' });
-      await playPlan(canvasRef.current, { ...next, phase: 'animating', turnIndex: state.turnIndex }, plan, undefined, (s) => {
-        if (s.type === 'walk') playSfx('step');
-        else if (s.type === 'snake') playSfx('snake');
-        else if (s.type === 'ladder') playSfx('ladder');
-        else if (s.type === 'win') playSfx('win');
-      });
-      setState(next);
+        else if (s.type === 'snake') { playSfx('snake'); moodsRef.current[playerIdx] = '😱'; }
+        else if (s.type === 'ladder') { playSfx('ladder'); moodsRef.current[playerIdx] = '🤩'; }
+        else if (s.type === 'win') { playSfx('win'); moodsRef.current[playerIdx] = '🥳'; }
+      },
+    });
+    if (next.winner === null) delete moodsRef.current[playerIdx];
+    setState(next);
+    if (next.winner !== null && canvasRef.current) {
+      await runConfetti(canvasRef.current, next);
     }
   }
 
-  if (!opts) return <Setup onStart={(o) => { setOpts(o); setState(freshGame(o)); }} />;
+  if (!opts) return <Setup onStart={(o) => { moodsRef.current = {}; setDie(null); setOpts(o); setState(freshGame(o)); }} />;
   if (!state) return null;
 
   return (
@@ -84,10 +94,10 @@ export default function App() {
       <div className="hud"><HUD state={state} /></div>
       <div className="canvas-wrap" style={{ position: 'relative' }}>
         <canvas ref={canvasRef} style={{ width: '100%', height: '100%' }} />
-        <WinModal state={state} onRematch={() => setState(freshGame(opts))} onNew={() => { setOpts(null); setState(null); }} />
+        <WinModal state={state} onRematch={() => { moodsRef.current = {}; setDie(null); setState(freshGame(opts)); }} onNew={() => { moodsRef.current = {}; setDie(null); setOpts(null); setState(null); }} />
       </div>
       <div className="sidebar">
-        <Dice state={state} onRoll={handleRoll} />
+        <Dice state={state} die={die} tumbling={tumbling} onRoll={handleRoll} />
         <Log state={state} />
       </div>
     </div>

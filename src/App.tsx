@@ -52,7 +52,7 @@ export default function App() {
       const { state: next, plan } = rollDice(state, die);
       playSfx('roll');
       setState({ ...next, phase: 'animating' });
-      await playPlan(canvasRef.current, { ...next, phase: 'animating' }, plan, undefined, (s) => {
+      await playPlan(canvasRef.current, { ...next, phase: 'animating', turnIndex: state.turnIndex }, plan, undefined, (s) => {
         if (s.type === 'walk') playSfx('step');
         else if (s.type === 'snake') playSfx('snake');
         else if (s.type === 'ladder') playSfx('ladder');
@@ -66,7 +66,7 @@ export default function App() {
       const { state: next, plan } = rollDice(state, die);
       playSfx('roll');
       setState({ ...next, phase: 'animating' });
-      await playPlan(canvasRef.current, { ...next, phase: 'animating' }, plan, undefined, (s) => {
+      await playPlan(canvasRef.current, { ...next, phase: 'animating', turnIndex: state.turnIndex }, plan, undefined, (s) => {
         if (s.type === 'walk') playSfx('step');
         else if (s.type === 'snake') playSfx('snake');
         else if (s.type === 'ladder') playSfx('ladder');

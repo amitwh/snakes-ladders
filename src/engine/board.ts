@@ -1,5 +1,5 @@
 import { createRng } from './rng';
-import type { JumpMap, Layout } from '../types';
+import type { Layout } from '../types';
 
 export interface Cell { row: number; col: number; }
 

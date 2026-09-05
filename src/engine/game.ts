@@ -1,4 +1,4 @@
-import type { GameState, Layout, Plan, Player, RollResult, Step } from '../types';
+import type { GameState, Layout, Player, RollResult, Step } from '../types';
 import { CLASSIC_LAYOUT, generateLayout } from './board';
 
 const BOARD_END = 100;
